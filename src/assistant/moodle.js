@@ -1,3 +1,4 @@
+import { syncShareQuestion } from './syncshare';
 import { candidate } from './fields';
 
 const clean = el => {
@@ -23,7 +24,7 @@ function imgToken(img) {
 }
 function labelOf(input, que) {
   const lb = input.getAttribute("aria-labelledby");
-  let el = lb && (que.ownerDocument || document).getElementById(lb);
+  let el = input.labels?.[0] || (lb && (que.ownerDocument || document).getElementById(lb));
   if (!el && input.id) el = que.querySelector(`label[for="${CSS.escape(input.id)}"]`);
   if (!el) el = input.closest("div");
   const text = clean(el);
@@ -52,7 +53,7 @@ function twinSafe(inputs, que) {
 const supportedTypes = new Set(['multianswer', 'gapselect', 'match', 'ddwtos', 'multichoice',
   'truefalse', 'shortanswer', 'numerical', 'calculated', 'calculatedsimple']);
 function typeOf(que) {
-  return [...que.classList].find(name => supportedTypes.has(name)) || "";
+  return [...que.classList].map(name => name.replace(/rudn$/, '')).find(name => supportedTypes.has(name)) || "";
 }
 
 // Выпадающий список ячейки: варианты без пустого «Выберите…»
@@ -171,7 +172,7 @@ function parse(root = document) {
     if (!kind) return;
 
     out.push({
-      que, kind, inputs,
+      que, type, kind, inputs,
       q: qtext.slice(0, 3000),
       choices: kind === "text" ? [] : twinSafe(inputs, que),
     });
@@ -204,7 +205,7 @@ export function moodleQuestions() {
     } else {
       fields = [{ input: it.inputs[0], kind: it.kind, options: it.choices.map((text, i) => ({ text, el: it.inputs[i] })) }];
     }
-    return { q: it.q, fields, wire };
+    return { q: it.q, fields, wire, syncShare: syncShareQuestion(it) };
   });
 }
 

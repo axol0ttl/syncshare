@@ -161,3 +161,91 @@ test('one top panel fills an OpenEdu subframe when SkipEdu is unavailable and re
     await until(() => fresh.checked);
   } finally { f.w.close(); p.w.close(); }
 });
+
+const moodlePage = '<body class="course-19 cmid-27"><div class="usermenu"><a href="/user/profile.php?id=43">Profile</a></div>';
+const moodleQuestion = '<div class="que multichoice"><input class="questionflagpostdata" type="hidden" ' +
+  'data-original-value="qid=810" value="qid=999&amp;sesskey=private"><div class="qtext"><b>' +
+  'According to anthropological determinism, criminality was thought to be _____.</b></div><div class="answer">' +
+  ['adopted','inherited'].map((word, i) => '<div><input type="radio" name="answer" id="r'+i+'" aria-labelledby="l'+i+'">' +
+    '<div id="l'+i+'"><span class="answernumber">a. </span>'+word+'</div></div>').join('') + '</div></div>';
+
+test('Moodle gets SyncShare v2 suggestions without SkipEdu and fills the matching shuffled option', async () => {
+  const requests = [];
+  const page = extension({}, (raw, options) => {
+    const url = new URL(raw);
+    requests.push(url);
+    assert.equal(url.origin + url.pathname, 'https://syncshare.ru/api/v2/quiz/solution');
+    assert.equal(options.credentials, 'omit');
+    assert.deepEqual(Object.fromEntries(url.searchParams), {
+      client:'1.0', host:'school.test', courseId:'19', quizId:'27', attemptId:'81', moodleId:'43',
+      questionId:'810', questionType:'multichoice', questionIdentity:'57319286'
+    });
+    return ok([{ anchor:[], suggestions:[
+      { label:'inherited', correctness:2, confidence:0.96, data:{anchor:['inherited']} },
+      { label:'унаследованный', correctness:2, confidence:0.80, data:{anchor:['унаследованный']} }
+    ], submissions:[{ label:'adopted', correctness:0, data:{anchor:['adopted']} }] }]);
+  });
+  const p = page('https://school.test/mod/quiz/attempt.php?attempt=81', moodlePage + moodleQuestion);
+  try {
+    await until(() => p.root.querySelector('summary b'));
+    assert.equal(requests.length, 1);
+    assert.equal(p.root.querySelector('summary b').textContent,'inherited');
+    const choices = [...p.root.querySelectorAll('.option')];
+    assert.equal(choices.length,2);
+    assert.match(choices[0].textContent,/96%/);
+    assert.match(choices[1].textContent,/унаследованный/);
+    assert.equal(choices[1].disabled,true);
+    assert.equal(p.root.querySelector('.notes').textContent,'');
+    p.root.querySelector('.primary').click();
+    await until(() => p.w.document.getElementById('r1').checked);
+    assert.equal(p.w.document.getElementById('r0').checked,false);
+  } finally { p.w.close(); }
+});
+
+test('SyncShare looks up unflagged questions by identity and distinguishes server failures and locks from no hits', async () => {
+  const html = moodlePage + moodleQuestion.replace(/<input class="questionflagpostdata"[^>]+>/,'') +
+    '<div class="que shortanswer"><div class="qtext">A second question?</div><div class="answer"><input type="text"></div></div>';
+  let offline = true;
+  const page = extension({}, raw => {
+    const params = new URL(raw).searchParams;
+    assert.equal(params.has('questionId'), false);
+    if (params.get('questionType') === 'shortanswer') {
+      return ok([{ anchor:[], suggestions:[{ label:'Found', data:'Found', correctness:2 }] }]);
+    }
+    if (offline) return Promise.resolve({ ok:false,status:503 });
+    return ok([{anchor:[], suggestionsLock:{message:'Требуется подписка'},suggestions:[]}]);
+  });
+  const p = page('https://school.test/mod/quiz/attempt.php?attempt=81', html);
+  try {
+    await until(() => p.root.querySelector('.notes').textContent.includes('503'));
+    assert.equal(p.root.querySelector('summary b').textContent,'Found');
+    offline = false;
+    p.root.querySelector('footer .link').click();
+    await until(() => p.root.querySelector('.notes').textContent.includes('Требуется подписка'));
+    assert.equal(p.root.querySelectorAll('details').length,1);
+  } finally { p.w.close(); }
+});
+
+test('Moodle match associates each SyncShare solution with its named row, including after a question swap', async () => {
+  const rows = ['Australia', 'Austria'].map(name => '<tr><td class="text">' + name + '</td><td><select>' +
+    '<option value="">Choose</option><option value="2">Vienna</option><option value="3">Canberra</option></select></td></tr>');
+  const html = moodlePage + '<div class="que match"><input class="questionflagpostdata" type="hidden" value="qid=420">' +
+    '<div class="qtext">Match each country with its capital</div><table class="answer">' + rows.join('') + '</table></div>';
+  const ids = [];
+  const page = extension({}, raw => {
+    ids.push(new URL(raw).searchParams.get('questionId'));
+    return ok([{anchor:['Austria'], suggestions:[{label:'Vienna',data:'Vienna',correctness:2}]}]);
+  });
+  const p = page('https://school.test/mod/quiz/attempt.php?attempt=81', html);
+  try {
+    await until(() => p.root.querySelector('summary b'));
+    const flag = p.w.document.querySelector('.questionflagpostdata');
+    flag.value = 'qid=421';
+    p.root.querySelector('.primary').click();
+    await until(() => p.root.querySelector('.status').textContent.includes('Страница изменилась'));
+    assert.deepEqual(ids,['420','421']);
+    p.root.querySelector('.primary').click();
+    await until(() => p.w.document.querySelectorAll('select')[1].value === '2');
+    assert.equal(p.w.document.querySelector('select').value,'');
+  } finally { p.w.close(); }
+});

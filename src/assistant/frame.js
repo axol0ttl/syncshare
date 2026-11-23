@@ -1,8 +1,8 @@
 import { browser, send, sourceKey } from './api';
 import { courseKey, openQuestions, openSkipAnswers, parsePolyvsp, polyAnswers } from './openedu';
 import { moodleQuestions, moodleAnswers } from './moodle';
-import { quizMeta } from '../content/quiz/main';
-import { applyAnswer, filled, candidate } from './fields';
+import { syncShareContext, syncShareAnswers } from './syncshare';
+import { applyAnswer, filled } from './fields';
 
 const open = /(^|\.)openedu\.ru$/i.test(location.hostname);
 const collect = open ? openQuestions : moodleQuestions;
@@ -26,12 +26,13 @@ async function polyRows(url) {
   }
 }
 
-async function lookup(groups, course) {
+async function lookup(groups, course, context) {
   const notices = [];
   const answers = groups.map(g => g.fields.map(() => []));
   async function skip() {
     const data = await send('search', { items: groups.map(g => g.wire), course });
-    if (data.notice) notices.push(data.notice);
+    if (data.unconfigured && (open || groups.some(g => !g.syncShare)))
+      notices.push('Дополнительную базу SkipEdu можно подключить в настройках.');
     groups.forEach((g, i) => {
       const candidates = open ? [openSkipAnswers(g, data.results[i])] : moodleAnswers(g, data.results[i]);
       candidates.forEach((list, j) => answers[i][j].push(...list));
@@ -50,38 +51,38 @@ async function lookup(groups, course) {
     }
     polyAnswers(groups, rows).forEach((list, i) => answers[i][0].push(...list));
   }
-  async function legacy() {
-    // Preserve suggestions from the existing Moodle service in the shared menu.
-    const { host, quizId, courseId } = quizMeta();
+  async function syncShare() {
+    if (!groups.some(g => g.syncShare)) return;
+    const names = { courseId: 'курса', quizId: 'теста', attemptId: 'попытки', moodleId: 'пользователя' };
+    const missing = Object.keys(names).filter(key => !context[key]);
+    if (missing.length) {
+      notices.push('SyncShare · На странице Moodle не найден ID ' + missing.map(k => names[k]).join(', ') + '.');
+      return;
+    }
     await Promise.all(groups.map(async (g, i) => {
-      const data = g.fields[0].input.closest('.que')?.querySelector('.questionflagpostdata')?.value;
-      const qId = Number(new URLSearchParams(data).get('qid'));
-      if (!qId || g.fields.length !== 1) return;
-      const solutions = await browser.runtime.sendMessage({ type: 'solution-request', payload: {
-        host, quizId, courseId, qId
-      } });
-      const f = g.fields[0];
-      for (const sol of solutions || []) {
-        for (const item of [...(sol.suggestions || []), ...(sol.submissions || [])]) {
-          const sign = item.item?.data?.sign;
-          const idx = f.options.findIndex(o => o.text === sign);
-          const a = candidate(f, 'SyncShare', { picks: [idx], value: item.item?.data?.text }, true);
-          if (a && item.correctness !== 0) answers[i][0].push(a);
-        }
-      }
+      if (!g.syncShare) return;
+      try {
+        const solutions = await send('solution', { query: { ...context, ...g.syncShare.query } });
+        syncShareAnswers(g, solutions, answers[i], notices);
+      } catch (e) { notices.push('SyncShare · ' + e.message); }
     }));
   }
-  const results = await Promise.allSettled([skip(), open ? poly() : legacy()]);
+  const results = await Promise.allSettled([skip(), open ? poly() : syncShare()]);
   results.forEach((r, i) => { if (r.status === 'rejected') notices.push((i === 0 ? 'SkipEdu · ' : '') + r.reason.message); });
   return { answers, notices };
+}
+
+function lookupKey(course, groups, context) {
+  return JSON.stringify([course, context, groups.map(g => [g.wire, g.texts, g.syncShare])]);
 }
 
 async function scan(request) {
   const groups = collect();
   const course = request.course || courseKey(location.href);
-  const key = JSON.stringify([course, groups.map(g => [g.wire, g.texts])]);
+  const context = open ? null : syncShareContext();
+  const key = lookupKey(course, groups, context);
   if (request.refresh || lastLookup?.key !== key) {
-    lastLookup = { key, promise: groups.length ? lookup(groups, course) : Promise.resolve({ answers: [], notices: [] }) };
+    lastLookup = { key, promise: groups.length ? lookup(groups, course, context) : Promise.resolve({ answers: [], notices: [] }) };
   }
   const current = lastLookup;
   const { answers, notices } = await current.promise;
@@ -90,8 +91,8 @@ async function scan(request) {
   groups.forEach((g, i) => g.fields.forEach((field, j) => {
     const unique = new Map();
     for (const a of answers[i][j]) {
-      const id = JSON.stringify([a.source, a.value, a.picks]);
-      if (!unique.has(id) || !a.manual) unique.set(id, a);
+      const id = JSON.stringify([a.source, a.value, a.picks, a.label]);
+      if (!unique.has(id) || (unique.get(id).manual && !a.manual)) unique.set(id, a);
     }
     entries.push({ field, title: g.q, caption: field.caption, answers: [...unique.values()] });
   }));
@@ -103,7 +104,7 @@ async function scan(request) {
 async function apply(request) {
   if (request.token !== snapshot?.token) return { stale: true, count: 0 };
   const groups = collect();
-  if (JSON.stringify([snapshot.course, groups.map(g => [g.wire, g.texts])]) !== snapshot.key)
+  if (lookupKey(snapshot.course, groups, open ? null : syncShareContext()) !== snapshot.key)
     return { stale: true, count: 0 };
   const fields = groups.flatMap(g => g.fields);
   let count = 0;
@@ -111,7 +112,7 @@ async function apply(request) {
     const entry = snapshot.entries[index];
     const field = fields[index];
     if (field?.input !== entry?.field.input) return { stale: true, count };
-    if (entry?.answers[answer] && await applyAnswer(field, entry.answers[answer], request.onlyEmpty)) count++;
+    if (entry?.answers[answer] && !entry.answers[answer].displayOnly && await applyAnswer(field, entry.answers[answer], request.onlyEmpty)) count++;
   }
   return { count };
 }

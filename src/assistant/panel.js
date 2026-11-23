@@ -102,7 +102,8 @@ export function panel() {
       detail.append(summary);
       for (const [i, a] of row.answers.entries()) {
         const pick = button('', () => apply([{ row, answer: i }], false), 'option');
-        pick.append(element('small', a.source + (a.manual ? ' · проверьте' : '')), element('span', a.label));
+        pick.disabled = !!a.displayOnly;
+        pick.append(element('small', a.source + (a.percent != null ? ' · ' + a.percent + '%' : '') + (a.displayOnly ? ' · для справки' : a.manual ? ' · проверьте' : '')), element('span', a.label));
         detail.append(pick);
       }
       list.append(detail);

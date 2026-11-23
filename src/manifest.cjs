@@ -9,7 +9,7 @@ module.exports = ({ isChrome, PACKAGE }) => {
         description: '__MSG_extensionDescription__', default_locale: 'en',
         icons,
         permissions: ['storage', 'webNavigation'],
-        host_permissions: ['https://polyvsp.ru/*', 'https://api.skipedu.xyz/*', 'https://*.openedu.ru/*'],
+        host_permissions: ['https://syncshare.ru/*', 'https://polyvsp.ru/*', 'https://api.skipedu.xyz/*', 'https://*.openedu.ru/*'],
         action: { default_icon: icons, default_title: 'SyncShare', default_popup: 'options.html' },
         options_ui: { page: 'options.html', open_in_tab: true },
         content_scripts: [

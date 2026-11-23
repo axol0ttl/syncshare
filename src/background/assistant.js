@@ -37,9 +37,24 @@ async function handle(m, sender) {
       if (!response.ok) throw new Error('PolyVSP · HTTP ' + response.status);
       return response.text();
     }
+    case 'solution': {
+      const page = new URL(sender.url);
+      if (!page.pathname.endsWith('/mod/quiz/attempt.php')) throw new Error('Откройте попытку Moodle.');
+      const url = new URL('https://syncshare.ru/api/v2/quiz/solution');
+      url.searchParams.set('host', page.host);
+      url.searchParams.set('client', browser.runtime.getManifest().version);
+      for (const key of ['courseId', 'quizId', 'attemptId', 'moodleId', 'questionType', 'questionIdentity', 'questionId']) {
+        if (m.query[key] != null) url.searchParams.set(key, m.query[key]);
+      }
+      const response = await fetch(url.href, { credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw new Error('Сервис вернул HTTP ' + response.status);
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error('Неизвестный формат ответа сервиса.');
+      return data;
+    }
     case 'search': {
       const { skipKey, device } = await browser.storage.local.get(['skipKey', 'device']);
-      if (!skipKey) return { results: [], notice: 'Подключите SkipEdu в настройках.' };
+      if (!skipKey) return { results: [], unconfigured: true };
       const open = isOpen(sender.url);
       const results = [];
       for (let offset = 0; offset < m.items.length; offset += 50) {

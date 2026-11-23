@@ -1,6 +1,6 @@
 {
     "name": "syncshare-extension",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Answer suggestions for Moodle and OpenEdu quizzes.",
     "main": "main.js",
     "scripts": {

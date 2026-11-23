@@ -11,7 +11,7 @@ class BreadcrumbSource extends DataSource {
         const items = document.querySelectorAll(".breadcrumb-item");
 
         for (const item of items) {
-            this.data.bcItems.push(removeInvisible(item.innerText));
+            this.data.bcItems.push(removeInvisible(item.textContent));
         }
 
         for (const link of links) {
@@ -24,7 +24,7 @@ class BreadcrumbSource extends DataSource {
                 this.data.courseId = parseInt(url.searchParams.get("id"));
 
                 /** @type {String} */
-                this.data.courseName = removeInvisible(link.innerText);
+                this.data.courseName = removeInvisible(link.textContent);
             }
             else if (url.pathname.includes("/mod/quiz/view.php")) {
                 if (this.data.quizName) continue;
@@ -33,7 +33,7 @@ class BreadcrumbSource extends DataSource {
                 this.data.quizId = parseInt(url.searchParams.get("id"));
 
                 /** @type {String} */
-                this.data.quizName = removeInvisible(link.innerText);
+                this.data.quizName = removeInvisible(link.textContent);
             }
         }
     }
