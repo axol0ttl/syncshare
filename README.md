@@ -13,7 +13,7 @@
 <a id="install"></a>
 ## Готовые расширения
 
-Скачайте архив для своего браузера на [странице последнего релиза](https://github.com/axol0ttl/syncshare/releases/latest).
+**[Скачать для Chrome (.zip)](https://github.com/axol0ttl/syncshare/releases/latest/download/syncshare-chrome.zip)** · **[Скачать для Firefox (.xpi)](https://github.com/axol0ttl/syncshare/releases/latest/download/syncshare-firefox.xpi)** · [Все релизы](https://github.com/axol0ttl/syncshare/releases)
 
 - **Chrome** — распакуйте `syncshare-chrome.zip`, включите режим разработчика на `chrome://extensions` и нажмите **Загрузить распакованное расширение**. Выберите папку, в которой лежит `manifest.json`.
 - **Firefox** — скачайте `syncshare-firefox.xpi`. Для временной установки откройте `about:debugging#/runtime/this-firefox`, нажмите **Загрузить временное дополнение** и выберите файл XPI. Эта сборка без подписи Mozilla действует до перезапуска браузера.
