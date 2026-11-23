@@ -1,56 +1,72 @@
-# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
-name: Node.js CI
+name: Build and release SyncShare
 
 on:
   push:
-    branches: [ master ]
+    branches: ['**']
   pull_request:
-    branches: [ master ]
+
+permissions:
+  contents: read
 
 jobs:
-  build-chrome-web-store:
-
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: 22
+          cache: npm
       - run: npm ci
-      - run: npm test
-        env:
-          NODE_ENV: production
-          ENVIRONMENT: production
-          SERVICE_URL: https://syncshare.herokuapp.com
-          ANALYTICS_URL: https://naloaty-analytics.herokuapp.com
-          ANALYTICS_ID: 4526d766-2ab3-48f1-b809-69070c5c5305
-      - uses: actions/upload-artifact@v4
-        with:
-          name: chrome-web-store
-          path: dist
-          retention-days: 5
-
-  build-firefox:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: '22.x'
-      - run: npm ci
+      - name: Build and test Chrome extension
+        run: npm test
+      - name: Package Chrome extension
+        working-directory: dist
+        run: zip -qr "$RUNNER_TEMP/syncshare-chrome.zip" .
       - run: npm run build:firefox
-        env:
-          NODE_ENV: production
-          ENVIRONMENT: production
-          SERVICE_URL: https://syncshare.herokuapp.com
-          ANALYTICS_URL: https://naloaty-analytics.herokuapp.com
-          ANALYTICS_ID: 4526d766-2ab3-48f1-b809-69070c5c5305
+      - name: Package Firefox extension
+        working-directory: dist
+        run: zip -qr "$RUNNER_TEMP/syncshare-firefox.xpi" .
       - uses: actions/upload-artifact@v4
         with:
-          name: firefox-production
-          path: dist
+          name: extensions
+          path: |
+            ${{ runner.temp }}/syncshare-chrome.zip
+            ${{ runner.temp }}/syncshare-firefox.xpi
+          if-no-files-found: error
           retention-days: 5
+
+  release:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: extensions
+          path: packages
+      - name: Publish both browser packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          tag="build-${GITHUB_RUN_NUMBER}-${GITHUB_SHA:0:7}"
+          assets=(packages/syncshare-chrome.zip packages/syncshare-firefox.xpi)
+          if [[ "$GITHUB_REF_NAME" == "$DEFAULT_BRANCH" ]]; then
+            flags=(--latest)
+          else
+            flags=(--prerelease)
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [[ "$(gh release view "$tag" --json isDraft --jq .isDraft)" == true ]]; then
+              gh release upload "$tag" "${assets[@]}" --clobber
+              gh release edit "$tag" --draft=false "${flags[@]}"
+            fi
+          else
+            gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" \
+              --title "SyncShare · Build $GITHUB_RUN_NUMBER" \
+              --notes "Сборка из ветки \`$GITHUB_REF_NAME\`, коммит \`$GITHUB_SHA\`." "${flags[@]}"
+          fi
