@@ -18,19 +18,19 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
-          node-version: '15.x'
-      - run: npm install
-      - run: npm run build:chrome
+          node-version: '22.x'
+      - run: npm ci
+      - run: npm test
         env:
           NODE_ENV: production
           ENVIRONMENT: production
           SERVICE_URL: https://syncshare.herokuapp.com
           ANALYTICS_URL: https://naloaty-analytics.herokuapp.com
           ANALYTICS_ID: 4526d766-2ab3-48f1-b809-69070c5c5305
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: chrome-web-store
-          path: browsers/chrome/distr
+          path: dist
           retention-days: 5
 
   build-firefox:
@@ -40,8 +40,8 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
         with:
-          node-version: '15.x'
-      - run: npm install
+          node-version: '22.x'
+      - run: npm ci
       - run: npm run build:firefox
         env:
           NODE_ENV: production
@@ -49,8 +49,8 @@ jobs:
           SERVICE_URL: https://syncshare.herokuapp.com
           ANALYTICS_URL: https://naloaty-analytics.herokuapp.com
           ANALYTICS_ID: 4526d766-2ab3-48f1-b809-69070c5c5305
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: firefox-production
-          path: browsers/firefox/distr
+          path: dist
           retention-days: 5

@@ -1,12 +1,10 @@
 {
     "extensionDescription": {
-        "message": "Позволяет узнать правильные ответы на тесты в обучающей системе Moodle, а также поделиться ими с другими пользователями расширения."
+        "message": "Подсказки и заполнение заданий OpenEdu и Moodle из баз PolyVSP и SkipEdu."
     },
-
     "magicMenuSuggestions": {
         "message": "Рекомендации"
     },
-
     "magicMenuSubmissions": {
         "message": "Пользователи"
     }

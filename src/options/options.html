@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Источники ответов · SyncShare</title>
+  <link rel="stylesheet" href="styles/options.css">
+</head>
+<body>
+  <main>
+    <header><img src="icons/icon@32.png" width="28" height="28" alt=""><strong>SyncShare</strong></header>
+    <h1>Источники ответов</h1>
+    <section>
+      <h2>SkipEdu</h2>
+      <p id="connection">Проверяем подключение…</p>
+      <form id="login"><label for="key">Ключ SkipEdu</label><div class="row"><input id="key" type="password" required autocomplete="off"><button>Подключить</button></div></form>
+      <button id="disconnect" hidden>Отключить</button>
+    </section>
+    <section>
+      <h2>PolyVSP</h2>
+      <form id="poly">
+        <label for="course">Настройки OpenEdu</label>
+        <select id="course"><option value="">По умолчанию для всех курсов</option></select>
+        <fieldset id="subjects" disabled>
+          <legend>Предметы PolyVSP</legend>
+          <input id="course-search" type="search" aria-label="Поиск предмета" placeholder="Найти предмет по названию">
+          <div id="course-list" class="courses" role="group" aria-label="Список предметов"></div>
+          <div class="row catalog-meta"><small id="selected-count"></small><button type="button" id="reload-catalog">Обновить каталог</button></div>
+          <p id="catalog-status" role="status"></p>
+          <details><summary>Добавить по ссылке</summary><label for="custom-url">Страница предмета на PolyVSP</label><input type="url" id="custom-url" placeholder="https://polyvsp.ru/…"></details>
+          <button type="submit">Сохранить выбор</button>
+        </fieldset>
+      </form>
+    </section>
+    <section>
+      <label for="preference">Если ответ есть в обеих базах</label>
+      <select id="preference"><option value="">Спросить при совпадении</option><option>PolyVSP</option><option>SkipEdu</option></select>
+    </section>
+    <p role="status" id="status"></p>
+  </main>
+  <script src="src/options.js"></script>
+</body>
+</html>

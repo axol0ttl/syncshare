@@ -1,1 +1,2 @@
-Icon designed by Pixel perfect from Flaticon
+Original SyncShare icon: Pixel perfect (Flaticon).
+This fork uses a new, AI-generated ribbon icon.

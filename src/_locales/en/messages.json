@@ -1,12 +1,10 @@
 {
     "extensionDescription": {
-        "message": "Synchronize and share right answers to Moodle quizzes."
+        "message": "Answer suggestions from PolyVSP and SkipEdu for OpenEdu and Moodle."
     },
-
     "magicMenuSuggestions": {
         "message": "Suggestions"
     },
-
     "magicMenuSubmissions": {
         "message": "Submissions"
     }
